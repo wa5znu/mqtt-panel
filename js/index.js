@@ -6,7 +6,7 @@ let cleansession = true;
 let reconnectTimeout = 3000;
 let temp680Data = new Array();
 let temp280Data = new Array();
-let dustData = new Array();
+let pm25Data = new Array();
 let mqtt;
 
 function MQTTconnect() {
@@ -73,7 +73,7 @@ function onMessageArrived(message) {
 
             temp680Data.push({
                 "timestamp": Date().slice(16, 21),
-                "temperature": temp
+                "value": temp
             });
             if (temp680Data.length >= 10) {
                 temp680Data.shift()
@@ -90,7 +90,7 @@ function onMessageArrived(message) {
 
             temp280Data.push({
                 "timestamp": Date().slice(16, 21),
-                "temperature": temp
+                "value": temp
             });
             if (temp280Data.length >= 10) {
                 temp280Data.shift()
@@ -107,7 +107,7 @@ function onMessageArrived(message) {
 
             pm25Data.push({
                 "timestamp": Date().slice(16, 21),
-                "pm25": pm25
+                "value": pm25
             });
             if (pm25Data.length >= 10) {
                 pm25Data.shift()
@@ -122,7 +122,7 @@ function onMessageArrived(message) {
 
             tempData.push({
                 "timestamp": Date().slice(16, 21),
-                "temperature": parseInt(payload)
+                "value": parseInt(payload)
             });
             if (tempData.length >= 10) {
                 tempData.shift()
@@ -163,11 +163,11 @@ function drawChart(chart_id, data) {
     let ctx = document.getElementById(chart_id).getContext("2d");
 
 
-    let temperatures = []
+    let values = []
     let timestamps = []
 
     data.map((entry) => {
-        temperatures.push(entry.temperature);
+        values.push(entry.value);
         timestamps.push(entry.timestamp);
     });
 
@@ -176,9 +176,9 @@ function drawChart(chart_id, data) {
         data: {
             labels: timestamps,
             datasets: [{
-                backgroundColor: 'rgb(255, 99, 132)',
+                // backgroundColor: 'rgb(255, 99, 132)',
                 borderColor: 'rgb(255, 99, 132)',
-                data: temperatures
+                data: values
             }]
         },
         options: {
@@ -192,6 +192,6 @@ function drawChart(chart_id, data) {
 $(document).ready(function () {
     drawChart("bme680Chart", temp680Data);
     drawChart("bme280Chart", temp280Data);
-    drawChart("dustChart", dustData);
+    drawChart("dustChart", pm25Data);
     MQTTconnect();
 });
