@@ -99,7 +99,7 @@ function onMessageArrived(message) {
 	    break;
 
         case 'dust':
-	    var pm25 = extract_float_field('pm25', payload);
+	    var pm25 = extract_float_field('pm2_5', payload);
 
             $('#dustPm25Sensor').html('(Sensor value: ' + pm25 + ')');
             $('#dustPm25Label').text(pm25 + ' μ');
