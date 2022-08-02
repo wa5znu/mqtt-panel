@@ -1,10 +1,12 @@
 let host = 'mqtt.klotz.me';
 let port = 8080;
-let topic = '#';
+let topic = 'sensor/#';
 let useTLS = false;
 let cleansession = true;
 let reconnectTimeout = 3000;
-let tempData = new Array();
+let temp680Data = new Array();
+let temp280Data = new Array();
+let dustData = new Array();
 let mqtt;
 
 function MQTTconnect() {
@@ -49,29 +51,70 @@ function onMessageArrived(message) {
     console.log("Topic: " + topic + ", Message payload: " + payload);
     $('#message').html(topic + ', ' + payload);
     let topics = topic.split('/');
-    let area = topics[1];
+    let sensor_type = topics[1];
 
-    switch (area) {
-        case 'front':
-            $('#value1').html('(Switch value: ' + payload + ')');
-            if (payload == 'true') {
-                $('#label1').text('Closed');
-                $('#label1').removeClass('badge-danger').addClass('badge-success');
-            } else {
-                $('#label1').text('Open');
-                $('#label1').removeClass('badge-success').addClass('badge-danger');
+    function extract_float_field(field_name, payload) {
+	var r = RegExp(`(?:^|;)${field_name}=([0-9.]+)(?:;|$)`);
+	var match = r.exec(payload);
+	var m = match[1];
+	var f = parseFloat(m);
+	return f;
+    }
+
+    // sensor/bme680/QTPY_1091a83186e0 temp=28.46;hum=50.51;press=1015.772;gas=47096
+    console.log('topic', topic, 'payload', payload, 'sensor type', sensor_type);
+    switch (sensor_type) {
+        case 'bme680':
+	    var temp = extract_float_field('temp', payload);
+
+            $('#bme680TempSensor').html('(Sensor value: ' + temp + ')');
+            $('#bme680TempLabel').text(temp + ' °C');
+            $('#bme680TempLabel').addClass('badge-default');
+
+            temp680Data.push({
+                "timestamp": Date().slice(16, 21),
+                "temperature": temp
+            });
+            if (temp680Data.length >= 10) {
+                temp680Data.shift()
             }
-            break;
-        case 'back':
-            $('#value2').html('(Switch value: ' + payload + ')');
-            if (payload == 'true') {
-                $('#label2').text('Closed');
-                $('#label2').removeClass('badge-danger').addClass('badge-success');
-            } else {
-                $('#label2').text('Open');
-                $('#label2').removeClass('badge-success').addClass('badge-danger');
+            drawChart('bme680Chart', temp680Data);
+	    break;
+
+        case 'bme280':
+	    var temp = extract_float_field('temp', payload);
+
+            $('#bme280TempSensor').html('(Sensor value: ' + temp + ')');
+            $('#bme280TempLabel').text(temp + ' °C');
+            $('#bme280TempLabel').addClass('badge-default');
+
+            temp280Data.push({
+                "timestamp": Date().slice(16, 21),
+                "temperature": temp
+            });
+            if (temp280Data.length >= 10) {
+                temp280Data.shift()
             }
+            drawChart('bme280Chart', temp280Data);
+	    break;
+
+        case 'dust':
+	    var pm25 = extract_float_field('pm25', payload);
+
+            $('#dustPm25Sensor').html('(Sensor value: ' + pm25 + ')');
+            $('#dustPm25Label').text(pm25 + ' μ');
+            $('#dustPm25Label').addClass('badge-default');
+
+            pm25Data.push({
+                "timestamp": Date().slice(16, 21),
+                "pm25": pm25
+            });
+            if (pm25Data.length >= 10) {
+                pm25Data.shift()
+            }
+            drawChart('dustChart', pm25Data);
             break;
+
         case 'living':
             $('#livingTempSensor').html('(Sensor value: ' + payload + ')');
             $('#livingTempLabel').text(payload + ' °C');
@@ -84,9 +127,9 @@ function onMessageArrived(message) {
             if (tempData.length >= 10) {
                 tempData.shift()
             }
-            drawChart(tempData);
-
+            drawChart('living', tempData);
             break;
+
         case 'basement':
             $('#basementTempSensor').html('(Sensor value: ' + payload + ')');
             if (payload >= 25) {
@@ -111,13 +154,13 @@ function onMessageArrived(message) {
             }
             break;
         default:
-            console.log('Error: Data do not match the MQTT topic.');
+            console.log('Error: Data do not match the MQTT topic.', payload);
             break;
     }
 };
 
-function drawChart(data) {
-    let ctx = document.getElementById("tempChart").getContext("2d");
+function drawChart(chart_id, data) {
+    let ctx = document.getElementById(chart_id).getContext("2d");
 
 
     let temperatures = []
@@ -147,6 +190,8 @@ function drawChart(data) {
 }
 
 $(document).ready(function () {
-    drawChart(tempData);
+    drawChart("bme680Chart", temp680Data);
+    drawChart("bme280Chart", temp280Data);
+    drawChart("dustChart", dustData);
     MQTTconnect();
 });
