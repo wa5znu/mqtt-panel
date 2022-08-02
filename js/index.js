@@ -1,5 +1,5 @@
-let host = 'localhost';
-let port = 9001;
+let host = 'mqtt.klotz.me';
+let port = 8080;
 let topic = '#';
 let useTLS = false;
 let cleansession = true;
