@@ -28,7 +28,7 @@
                 <div class="col-6 col-md-4">
                     <div class="card-body">
                         <div class="card-title">
-                            Entrance
+                            BME680
                         </div>
                         <span id="label1" class="badge w-100">Unknown</span>
                     </div>
@@ -36,7 +36,7 @@
                 <div class="col-6 col-md-4">
                     <div class="card-body">
                         <div class="card-title">
-                            Back door
+                            BME280
                         </div>
                         <span id="label2" class="badge w-100">Unknown</span>
                     </div>
@@ -44,7 +44,7 @@
                 <div class="col-12 col-md-4">
                     <div class="card-body">
                         <div class="card-title">
-                            Basement temperature
+                            Dust
                         </div>
                         <span id="basementTempLabel" class="badge w-100">Unknown</span>
                     </div>
@@ -56,11 +56,11 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="card-title">
-                            Living room temperature
-                            <span id="livingTempLabel" class="text-muted float-right badge">Unknown</span>
+                            BME680 temperature
+                            <span id="bme680TempLabel" class="text-muted float-right badge">Unknown</span>
                         </div>
                     </div>
-                    <canvas id="tempChart" width="300" height="120"></canvas>
+                    <canvas id="bme680Chart" width="300" height="120"></canvas>
                 </div>
             </div>
             <div class="col-12 col-md-5">
@@ -79,8 +79,8 @@
                             <td><small id="basementTempLabel">(no value received)</small></td>
                         </tr>
                         <tr>
-                            <th>Living room temperature</th>
-                            <td><small id="livingTempSensor">(no value received)</small></td>
+                            <th>BME680 room temperature</th>
+                            <td><small id="bme680TempSensor">(no value received)</small></td>
                         </tr>
                         <tr>
                             <th>Last MQTT message</th>
@@ -91,6 +91,36 @@
             </div>
         </div>
         <hr>
+
+        <div class="row">
+            <div class="col-12 col-md-7 mb-2">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="card-title">
+                            BME280 temperature
+                            <span id="bme280TempLabel" class="text-muted float-right badge">Unknown</span>
+                        </div>
+                    </div>
+                    <canvas id="bme280Chart" width="300" height="120"></canvas>
+                </div>
+            </div>
+	</div>
+
+        <div class="row">
+            <div class="col-12 col-md-7 mb-2">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="card-title">
+                            Dust PM 2.5
+                            <span id="dustPm25Label" class="text-muted float-right badge">Unknown</span>
+                        </div>
+                    </div>
+                    <canvas id="dustChart" width="300" height="120"></canvas>
+                </div>
+            </div>
+	</div>
+	<hr />
+
         <footer class="text-center mt-10">
             <small>
                 <a href="https://github.com/fabaff/mqtt-panel">forked from github.com/fabaff/mqtt-panel</a>
