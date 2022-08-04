@@ -172,8 +172,7 @@ function drawChart(chart_id, keys, data) {
     };
     // console.log(chart_data);
     chart_options = {
-        legend: {display: false},
-        scales:{ yAxes: [{ticks: {min: 0}}] }
+        legend: {display: false}
     };
     let chart = new Chart(ctx, {type: 'line', data: chart_data, options:chart_options});
 }
