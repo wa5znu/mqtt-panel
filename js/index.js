@@ -4,7 +4,7 @@ let topic = 'sensor/#';
 let useTLS = false;
 let cleansession = true;
 let reconnectTimeout = 3000;
-let maxDataPoints = 500;
+let maxDataPoints = 2400;
 let mqtt;
     
 
@@ -28,26 +28,26 @@ function MQTTconnect() {
                 .attr('class', 'alert alert-danger');
             setTimeout(MQTTconnect, reconnectTimeout);
         }
-    };
+    }
 
     mqtt.onConnectionLost = onConnectionLost;
     mqtt.onMessageArrived = onMessageArrived;
     console.log("Host: " + host + ", Port: " + port + ", Path: " + path + " TLS: " + useTLS);
     mqtt.connect(options);
-};
+}
 
 function onConnect() {
     $('#status').html('Connected to ' + host + ':' + port + path)
         .attr('class', 'alert alert-success');
     mqtt.subscribe(topic, { qos: 0 });
     $('#topic').html(topic);
-};
+}
 
 function onConnectionLost(response) {
     setTimeout(MQTTconnect, reconnectTimeout);
     $('#status').html("Connection lost. Reconnecting...")
         .attr('class', 'alert alert-warning');
-};
+}
 
 function onMessageArrived(message) {
     let topic = message.destinationName;
@@ -76,7 +76,7 @@ function onMessageArrived(message) {
             var gas = extract_float_field('gas', payload);
 
             $('#bme680TempSensor').html(payload);
-            $('#bme680Label').text(temp + ' °C ' + hum + '% ' + press + 'in ');
+            $('#bme680Label').text(temp + '°C ' + hum + '% ' + press.toFixed(3) + 'in ');
             $('#bme680Label').addClass('badge-default');
 
             temp680Data.push({
@@ -99,7 +99,7 @@ function onMessageArrived(message) {
             var press = extract_float_field('press', payload) * 0.02953;
 
             $('#bme280TempSensor').html(payload);
-            $('#bme280Label').text(temp + ' °C ' + hum + '% ' + press + 'in ');
+            $('#bme280Label').text(temp + '°C ' + hum + '% ' + press.toFixed(3) + 'in ');
             $('#bme280Label').addClass('badge-default');
 
             temp280Data.push({
@@ -137,43 +137,40 @@ function onMessageArrived(message) {
             console.log('Error: Data do not match the MQTT topic.', payload);
             break;
     }
-};
+}
 
 function drawChart(chart_id, keys, data) {
     // console.log("drawChart", chart_id, keys, data);
     let ctx = document.getElementById(chart_id).getContext("2d");
 
-    let values = {}
-    let timestamps = []
-
-    data.forEach((entry) => {
-        timestamps.push(entry.timestamp);
-        keys.forEach((key) => {
-	    let val = entry[key];
-	    if (key in values) {
-		values[key].push(val);
-	    } else {
-		values[key] = [val];
-            }
-        })
-    });
-    
     let colors = {
-        'temp': 'rgb(255, 99, 132)',
-        'hum': 'rgb(99,255,132)',
+        'temp':  'rgb(255,99,132)',
+        'hum':   'rgb(99,255,132)',
         'press': 'rgb(132,99,255)',
-        'pm25': 'rgb(132,255,99)'
+        'pm25':  'rgb(132,255,99)'
     }
         
     let chart_data = {
-        "labels": timestamps,
-        // backgroundColor: 'rgb(255, 99, 132)'
-        "datasets": keys.map((key) => ({ 'borderColor': colors[key], 'data': values[key] })),
-    };
+        "labels": data.map((d) => d.timestamp),
+        backgroundColor: 'rgb(255, 99, 132)',
+        datasets: keys.map((key) => ({
+            label: key,
+            data: data,
+            borderColor: colors[key],
+            borderWidth: 1,
+            parsing: {
+                xAxisKey: 'timestamp',
+                yAxisKey: key,
+            },
+        })),
+    }
+
     // console.log(chart_data);
     chart_options = {
-        legend: {display: false}
-    };
+        legend: {display: true},
+        options: { scales: { y: { beginAtZero: true } } }
+    }
+
     let chart = new Chart(ctx, {type: 'line', data: chart_data, options:chart_options});
 }
 
@@ -199,6 +196,7 @@ function restoreMetricsStream(metric_name) {
 }
 
 
+
 $(document).ready(function () {
     temp680Data = restoreMetricsStream('temp680');
     temp280Data = restoreMetricsStream('temp280');
@@ -207,5 +205,6 @@ $(document).ready(function () {
     drawChart("bme680Chart", ['temp', 'hum', 'press'], temp680Data);
     drawChart("bme280Chart", ['temp', 'hum', 'press'], temp280Data);
     drawChart("dustChart", ['pm25'], pm25Data);
+
     MQTTconnect();
 });
