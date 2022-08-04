@@ -76,8 +76,8 @@ function onMessageArrived(message) {
             var gas = extract_float_field('gas', payload);
 
             $('#bme680TempSensor').html(payload);
-            $('#bme680TempLabel').text(temp + ' °C');
-            $('#bme680TempLabel').addClass('badge-default');
+            $('#bme680Label').text(temp + ' °C ' + hum + '% ' + press + 'in ');
+            $('#bme680Label').addClass('badge-default');
 
             temp680Data.push({
                 "timestamp": Date().slice(16, 21),
@@ -99,8 +99,8 @@ function onMessageArrived(message) {
             var press = extract_float_field('press', payload) * 0.02953;
 
             $('#bme280TempSensor').html(payload);
-            $('#bme280TempLabel').text(temp + ' °C');
-            $('#bme280TempLabel').addClass('badge-default');
+            $('#bme280Label').text(temp + ' °C ' + hum + '% ' + press + 'in ');
+            $('#bme280Label').addClass('badge-default');
 
             temp280Data.push({
                 "timestamp": Date().slice(16, 21),
