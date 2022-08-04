@@ -10,6 +10,7 @@
 
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <!-- script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.0/dist/chart.min.js" integrity="sha256-EaVVboxsmglNYtt4MuLv21oLCCO/ipyZJ0zLw+zbWhA=" crossorigin="anonymous"></script -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.2/mqttws31.js"></script>
 
@@ -56,31 +57,31 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="card-title">
-                            BME680 temperature
+                            BME680
                             <span id="bme680TempLabel" class="text-muted float-right badge">Unknown</span>
                         </div>
                     </div>
-                    <canvas id="bme680Chart" width="300" height="120"></canvas>
+                    <canvas id="bme680Chart" width="300" height="100"></canvas>
                 </div>
             </div>
             <div class="col-12 col-md-5">
                 <table class="table table-bordered table-sm table-striped mt-2">                    
                     <tbody>
                         <tr>
-                            <th>Entrance</th>
-                            <td><small id="value1">(no value received)</small></td>
+                          <th>BM280</th>
+                            <td><small id="bme280TempSensor">(no value received)</small></td>
                         </tr>
                         <tr>
-                            <th>Back door</th>
-                            <td><small id="value2">(no value received)</small></td>
+                        <tr>
+                            <th>BME680</th>
+                            <td><small id="bme680TempSensor">(no value received)</small></td>
+                        </tr>
+                            <th>Dust</th>
+                            <td><small id="dustPm25Sensor">(no value received)</small></td>
                         </tr>
                         <tr>
                             <th>Basement temperature</th>
                             <td><small id="basementTempLabel">(no value received)</small></td>
-                        </tr>
-                        <tr>
-                            <th>BME680 room temperature</th>
-                            <td><small id="bme680TempSensor">(no value received)</small></td>
                         </tr>
                         <tr>
                             <th>Last MQTT message</th>
@@ -97,11 +98,11 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="card-title">
-                            BME280 temperature
+                            BME280 
                             <span id="bme280TempLabel" class="text-muted float-right badge">Unknown</span>
                         </div>
                     </div>
-                    <canvas id="bme280Chart" width="300" height="120"></canvas>
+                    <canvas id="bme280Chart" width="300" height="100"></canvas>
                 </div>
             </div>
 	</div>

@@ -4,10 +4,14 @@ let topic = 'sensor/#';
 let useTLS = false;
 let cleansession = true;
 let reconnectTimeout = 3000;
+let maxDataPoints = 500;
+let mqtt;
+    
+
 let temp680Data = new Array();
 let temp280Data = new Array();
 let pm25Data = new Array();
-let mqtt;
+
 
 function MQTTconnect() {
     if (typeof path == "undefined") {
@@ -54,144 +58,166 @@ function onMessageArrived(message) {
     let sensor_type = topics[1];
 
     function extract_float_field(field_name, payload) {
-	var r = RegExp(`(?:^|;)${field_name}=([0-9.]+)(?:;|$)`);
-	var match = r.exec(payload);
-	var m = match[1];
-	var f = parseFloat(m);
-	return f;
+        var r = RegExp(`(?:^|;)${field_name}=([0-9.]+)(?:;|$)`);
+        var match = r.exec(payload);
+        var m = match[1];
+        var f = parseFloat(m);
+        return f;
     }
 
     // sensor/bme680/QTPY_1091a83186e0 temp=28.46;hum=50.51;press=1015.772;gas=47096
     console.log('topic', topic, 'payload', payload, 'sensor type', sensor_type);
     switch (sensor_type) {
         case 'bme680':
-	    var temp = extract_float_field('temp', payload);
+            var temp = extract_float_field('temp', payload);
+            var hum = extract_float_field('hum', payload);
+            var press = extract_float_field('press', payload) * 0.02953;
+            var gas = extract_float_field('gas', payload);
 
-            $('#bme680TempSensor').html('(Sensor value: ' + temp + ')');
+            $('#bme680TempSensor').html(payload);
             $('#bme680TempLabel').text(temp + ' °C');
             $('#bme680TempLabel').addClass('badge-default');
 
             temp680Data.push({
                 "timestamp": Date().slice(16, 21),
-                "value": temp
+                "temp": temp,
+                "hum": hum,
+                "press": press,
+                "gas": gas
             });
-            if (temp680Data.length >= 10) {
+            if (temp680Data.length >= maxDataPoints) {
                 temp680Data.shift()
             }
-            drawChart('bme680Chart', temp680Data);
-	    break;
+            saveMetricsStream('temp680', temp680Data);
+            drawChart('bme680Chart', ['temp', 'hum', 'press'], temp680Data);
+            break;
 
         case 'bme280':
-	    var temp = extract_float_field('temp', payload);
+            var temp = extract_float_field('temp', payload);
+            var hum = extract_float_field('hum', payload);
+            var press = extract_float_field('press', payload) * 0.02953;
 
-            $('#bme280TempSensor').html('(Sensor value: ' + temp + ')');
+            $('#bme280TempSensor').html(payload);
             $('#bme280TempLabel').text(temp + ' °C');
             $('#bme280TempLabel').addClass('badge-default');
 
             temp280Data.push({
                 "timestamp": Date().slice(16, 21),
-                "value": temp
+                "temp": temp,
+                "hum": hum,
+                "press": press
             });
-            if (temp280Data.length >= 10) {
+            if (temp280Data.length >= maxDataPoints) {
                 temp280Data.shift()
             }
-            drawChart('bme280Chart', temp280Data);
-	    break;
+            saveMetricsStream('temp280', temp280Data);
+            drawChart('bme280Chart', ['temp', 'hum', 'press'], temp280Data);
+            break;
 
         case 'dust':
-	    var pm25 = extract_float_field('pm2_5', payload);
+            var pm25 = extract_float_field('pm2_5', payload);
 
-            $('#dustPm25Sensor').html('(Sensor value: ' + pm25 + ')');
+            $('#dustPm25Sensor').html(payload);
             $('#dustPm25Label').text(pm25 + ' μ');
             $('#dustPm25Label').addClass('badge-default');
 
             pm25Data.push({
                 "timestamp": Date().slice(16, 21),
-                "value": pm25
+                "pm25": pm25
             });
-            if (pm25Data.length >= 10) {
+            if (pm25Data.length >= maxDataPoints) {
                 pm25Data.shift()
             }
-            drawChart('dustChart', pm25Data);
+            saveMetricsStream('pm25', pm25Data);
+            drawChart('dustChart', ['pm25'], pm25Data);
             break;
 
-        case 'living':
-            $('#livingTempSensor').html('(Sensor value: ' + payload + ')');
-            $('#livingTempLabel').text(payload + ' °C');
-            $('#livingTempLabel').addClass('badge-default');
-
-            tempData.push({
-                "timestamp": Date().slice(16, 21),
-                "value": parseInt(payload)
-            });
-            if (tempData.length >= 10) {
-                tempData.shift()
-            }
-            drawChart('living', tempData);
-            break;
-
-        case 'basement':
-            $('#basementTempSensor').html('(Sensor value: ' + payload + ')');
-            if (payload >= 25) {
-                $('#basementTempLabel').text(payload + ' °C - too hot');
-                $('#basementTempLabel').removeClass('badge-warning badge-success badge-info badge-primary').addClass('badge-danger');
-            } else if (payload >= 21) {
-                $('#basementTempLabel').text(payload + ' °C - hot');
-                $('#basementTempLabel').removeClass('badge-danger badge-success badge-info badge-primary').addClass('badge-warning');
-            } else if (payload >= 18) {
-                $('#basementTempLabel').text(payload + ' °C - normal');
-                $('#basementTempLabel').removeClass('badge-danger badge-warning badge-info badge-primary').addClass('badge-success');
-            } else if (payload >= 15) {
-                $('#basementTempLabel').text(payload + ' °C - low');
-                $('#basementTempLabel').removeClass('badge-danger badge-warning badge-success badge-primary').addClass('badge-info');
-            } else if (mpayload <= 12) {
-                $('#basementTempLabel').text(payload + ' °C - too low');
-                $('#basementTempLabel').removeClass('badge-danger badge-warning badge-success badge-info').addClass('badge-primary');
-                basementTemp.push(parseInt(payload));
-                if (basementTemp.length >= 20) {
-                    basementTemp.shift()
-                }
-            }
-            break;
         default:
             console.log('Error: Data do not match the MQTT topic.', payload);
             break;
     }
 };
 
-function drawChart(chart_id, data) {
+function drawChart(chart_id, keys, data) {
+    console.log("drawChart", chart_id, keys, data);
     let ctx = document.getElementById(chart_id).getContext("2d");
 
-
-    let values = []
+    let values = {}
     let timestamps = []
 
-    data.map((entry) => {
-        values.push(entry.value);
-        timestamps.push(entry.timestamp);
-    });
+    console.log("keys=", keys);
+    console.log("data=", data);
 
-    let chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: timestamps,
-            datasets: [{
-                // backgroundColor: 'rgb(255, 99, 132)',
-                borderColor: 'rgb(255, 99, 132)',
-                data: values
-            }]
-        },
-        options: {
-            legend: {
-                display: false
+    console.log("stop here");
+
+    data.forEach((entry) => {
+        timestamps.push(entry.timestamp);
+        keys.forEach((key) => {
+	    let val = entry[key];
+	    if (key in values) {
+		values[key].push(val);
+	    } else {
+		values[key] = [val];
             }
-        }
+        })
     });
+    
+    console.log("timestamps=", timestamps);
+    console.log("values=", values);
+
+    let colors = {
+        'temp': 'rgb(255, 99, 132)',
+        'hum': 'rgb(99,255,132)',
+        'press': 'rgb(132,99,255)',
+        'pm25': 'rgb(132,255,99)'
+    }
+        
+    let chart_data = {
+        "labels": timestamps,
+        // backgroundColor: 'rgb(255, 99, 132)'
+        "datasets": keys.map((key) => ({ 'borderColor': colors[key], 'data': values[key] })),
+    };
+    // console.log(chart_data);
+    chart_options = {
+        legend: {display: false},
+        scales:{ yAxes: [{ticks: {min: 0}}] }
+    };
+    let chart = new Chart(ctx, {type: 'line', data: chart_data, options:chart_options});
 }
 
+
+function saveMetricsStream(metric_name, metric_values) {
+    let key = 'metrics-' + metric_name;
+    let value = JSON.stringify(metric_values);
+    console.log('saveMetricsStream', key, value);
+    localStorage.setItem(key, value);
+}
+
+function restoreMetricsStream(metric_name) {
+    let key = 'metrics-' + metric_name;
+    let value = localStorage.getItem(key)
+    let metrics_values;
+
+    try {
+        metrics_values = JSON.parse(value);
+    } catch (exception) {
+        console.log("restoreMetricsStream exception", exception, key, value);
+    }
+
+    console.log('restoreMetricsStream', key, metrics_values);
+
+    return metrics_values || new Array();
+}
+
+
 $(document).ready(function () {
-    drawChart("bme680Chart", temp680Data);
-    drawChart("bme280Chart", temp280Data);
-    drawChart("dustChart", pm25Data);
+    console.log("onRedraw");
+    temp680Data = restoreMetricsStream('temp680');
+    temp280Data = restoreMetricsStream('temp280');
+    pm25Data = restoreMetricsStream('pm25');
+
+    drawChart("bme680Chart", ['temp', 'hum', 'press'], temp680Data);
+    drawChart("bme280Chart", ['temp', 'hum', 'press'], temp280Data);
+    drawChart("dustChart", ['pm25'], pm25Data);
     MQTTconnect();
 });
