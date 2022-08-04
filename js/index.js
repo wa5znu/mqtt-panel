@@ -52,8 +52,9 @@ function onConnectionLost(response) {
 function onMessageArrived(message) {
     let topic = message.destinationName;
     let payload = message.payloadString;
-    console.log("Topic: " + topic + ", Message payload: " + payload);
-    $('#message').html(topic + ', ' + payload);
+    let timestamp = Date().slice(16, 21);
+    console.log(timestamp + " topic=" + topic + " payload=" + payload);
+    $('#message').html(timestamp + ' ' + topic + ': ' + payload);
     let topics = topic.split('/');
     let sensor_type = topics[1];
 
@@ -66,7 +67,7 @@ function onMessageArrived(message) {
     }
 
     // sensor/bme680/QTPY_1091a83186e0 temp=28.46;hum=50.51;press=1015.772;gas=47096
-    console.log('topic', topic, 'payload', payload, 'sensor type', sensor_type);
+    // console.log('topic', topic, 'payload', payload, 'sensor type', sensor_type);
     switch (sensor_type) {
         case 'bme680':
             var temp = extract_float_field('temp', payload);
@@ -139,16 +140,11 @@ function onMessageArrived(message) {
 };
 
 function drawChart(chart_id, keys, data) {
-    console.log("drawChart", chart_id, keys, data);
+    // console.log("drawChart", chart_id, keys, data);
     let ctx = document.getElementById(chart_id).getContext("2d");
 
     let values = {}
     let timestamps = []
-
-    console.log("keys=", keys);
-    console.log("data=", data);
-
-    console.log("stop here");
 
     data.forEach((entry) => {
         timestamps.push(entry.timestamp);
@@ -162,9 +158,6 @@ function drawChart(chart_id, keys, data) {
         })
     });
     
-    console.log("timestamps=", timestamps);
-    console.log("values=", values);
-
     let colors = {
         'temp': 'rgb(255, 99, 132)',
         'hum': 'rgb(99,255,132)',
@@ -189,7 +182,6 @@ function drawChart(chart_id, keys, data) {
 function saveMetricsStream(metric_name, metric_values) {
     let key = 'metrics-' + metric_name;
     let value = JSON.stringify(metric_values);
-    console.log('saveMetricsStream', key, value);
     localStorage.setItem(key, value);
 }
 
@@ -204,14 +196,11 @@ function restoreMetricsStream(metric_name) {
         console.log("restoreMetricsStream exception", exception, key, value);
     }
 
-    console.log('restoreMetricsStream', key, metrics_values);
-
     return metrics_values || new Array();
 }
 
 
 $(document).ready(function () {
-    console.log("onRedraw");
     temp680Data = restoreMetricsStream('temp680');
     temp280Data = restoreMetricsStream('temp280');
     pm25Data = restoreMetricsStream('pm25');
