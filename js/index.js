@@ -130,7 +130,7 @@ function onMessageArrived(message) {
                 pm25Data.shift()
             }
             saveMetricsStream('pm25', pm25Data);
-            drawChart('dustChart', ['pm25'], pm25Data);
+            drawChart('dustChart', ['pm25'], movingAvgPM25(pm25Data));
             break;
 
         default:
@@ -168,7 +168,9 @@ function drawChart(chart_id, keys, data) {
     // console.log(chart_data);
     chart_options = {
         legend: {display: true},
-        options: { scales: { y: { beginAtZero: true } } }
+	// scales: { y: { beginAtZero: true } },
+	scales: { y: { type: 'logarithmic', bounds: 'ticks', ticks: { major: { enabled: true } } } },
+	showLine: false,
     }
 
     let chart = new Chart(ctx, {type: 'line', data: chart_data, options:chart_options});
@@ -196,15 +198,44 @@ function restoreMetricsStream(metric_name) {
 }
 
 
+function movingAvgPM25(data) {
+    return movingAvg(data, 'pm25', 1, 1);
+}
+
+// https://stackoverflow.com/a/63348486 https://stackoverflow.com/users/1583422/frank-orellana
+// hacked to operate on a dict { ... `fieldname`: value, ... }
+// old docs:
+// const myArr = [1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9];
+// // averages of 7 (i.e. 7 day moving average):
+// const avg7Before = movingAvg(myArr, 6); //6 before and the current
+// const avg7Middle = movingAvg(myArr, 3, 3); //3 before, 3 after, plus the current
+// const avg7After = movingAvg(myArr, 0, 6); //6 after plus the current
+// console.log('original:',...myArr.map(x => x.toFixed(1)));
+// console.log('7 before:',...avg7Before.map(x => x.toFixed(1)));
+// console.log('7 middle:',...avg7Middle.map(x => x.toFixed(1)));
+// console.log('7 after: ',...avg7After.map(x => x.toFixed(1)));
+
+function movingAvg(array_of_dicts, fieldname, countBefore, countAfter) {
+  if (countAfter == undefined) countAfter = 0;
+  const result = [];
+  for (let i = 0; i < array_of_dicts.length; i++) {
+      const subArr = array_of_dicts.slice(Math.max(i - countBefore, 0), Math.min(i + countAfter + 1, array_of_dicts.length));
+      const avg = subArr.reduce((a, b) => a + (isNaN(b[fieldname]) ? 0 : b[fieldname]), 0) / subArr.length;
+      let exemplar = {...array_of_dicts[i]}
+      exemplar[fieldname] = avg
+      result.push(exemplar);
+  }
+  return result;
+}
 
 $(document).ready(function () {
     temp680Data = restoreMetricsStream('temp680');
     temp280Data = restoreMetricsStream('temp280');
     pm25Data = restoreMetricsStream('pm25');
 
-    drawChart("bme680Chart", ['temp', 'hum', 'press'], temp680Data);
-    drawChart("bme280Chart", ['temp', 'hum', 'press'], temp280Data);
-    drawChart("dustChart", ['pm25'], pm25Data);
+    drawChart('bme680Chart', ['temp', 'hum', 'press'], temp680Data);
+    drawChart('bme280Chart', ['temp', 'hum', 'press'], temp280Data);
+    drawChart('dustChart', ['pm25'], movingAvgPM25(pm25Data));
 
     MQTTconnect();
 });
