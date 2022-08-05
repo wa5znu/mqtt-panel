@@ -111,6 +111,7 @@ function handleMessage(message) {
                 "gas": gas
             }
 
+            data = movingAvgHum([...bme680Data, data]).slice(-1);
             addToMetricsStream('temp680', bme680Data, data, bme680Chart);
             break;
         }
@@ -132,6 +133,7 @@ function handleMessage(message) {
                 "press": press
             };
 
+            data = movingAvgHum([...bme280Data, data]).slice(-1);
             addToMetricsStream('temp280', bme280Data, data, bme280Chart);
             break;
         }
@@ -150,10 +152,7 @@ function handleMessage(message) {
             };
 
             data = movingAvgPM25([...pm25Data, data]).slice(-1);
-            console.log("dust augmented data", data);
             addToMetricsStream('pm25', pm25Data, data, dustChart);
-
-            // dustChart = drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
             break;
         }
 
