@@ -80,7 +80,7 @@ function onMessageArrived(message) {
         case 'bme680':
             var temp = extract_float_field('temp', payload);
             var hum = extract_float_field('hum', payload);
-            var press = extract_float_field('press', payload) * 0.02953;
+            var press = (extract_float_field('press', payload) * 0.02953).toFixed(4);
             var gas = extract_float_field('gas', payload);
 
             $('#bme680TempSensor').html(payload);
@@ -104,9 +104,9 @@ function onMessageArrived(message) {
         case 'bme280':
             var temp = extract_float_field('temp', payload);
             var hum = extract_float_field('hum', payload);
-            var press = extract_float_field('press', payload) * 0.02953;
+            var press = (extract_float_field('press', payload) * 0.02953).toFixed(4);
 
-            $('#bme280TempSensor').html(payload);
+            $('#bme280Sensor').html(payload);
             $('#bme280Label').text(temp + '°C ' + hum + '% ' + press.toFixed(3) + 'in ');
             $('#bme280Label').addClass('badge-default');
 
@@ -120,7 +120,7 @@ function onMessageArrived(message) {
                 temp280Data.shift()
             }
             saveMetricsStream('temp280', temp280Data);
-            drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(temp280Data));
+	            drawChart('bme280Chart', ['temp', 'press', 'hum', 'hum_smooth', ], movingAvgHum(temp280Data));
             break;
 
         case 'dust':
@@ -166,25 +166,25 @@ function drawChart(chart_id, keys, data) {
     }
 
     let plugin_options = {
-	zoom: {
+        zoom: {
             zoom: {
-		wheel: { enabled: true },
-		pinch: { enabled: true },
-		mode: 'x',
+                wheel: { enabled: true },
+                pinch: { enabled: true },
+                mode: 'x',
             },
-	    pan: {
-		enabled: true,
-		mode: 'x',
-	    },
-	}
+            pan: {
+                enabled: true,
+                mode: 'x',
+            },
+        }
     }
 
     // console.log(chart_data);
     let chart_options = {
         legend: {display: true},
-	scales: { y: { type: 'logarithmic', bounds: 'ticks', ticks: { major: { enabled: true } } } },
-	showLine: true,
-	plugins: plugin_options,
+        scales: { y: { type: 'logarithmic', bounds: 'ticks', ticks: { major: { enabled: true } } } },
+        showLine: true,
+        plugins: plugin_options,
     }
 
     let chart = new Chart(ctx, {type: 'line', data: chart_data, options:chart_options});
@@ -212,7 +212,7 @@ function restoreMetricsStream(metric_name) {
 }
 
 
-function movingAvgHum(data) {
+function movingAvgHum(data, raw_field, smooth_field) {
     return movingAvg(data, 'hum', 30, 30, 'hum_smooth');
 }
 
@@ -240,7 +240,7 @@ function movingAvg(array_of_dicts, raw_fieldname, countBefore, countAfter, smoot
   const result = [];
   for (let i = 0; i < array_of_dicts.length; i++) {
       const subArr = array_of_dicts.slice(Math.max(i - countBefore, 0), Math.min(i + countAfter + 1, array_of_dicts.length));
-      const avg = subArr.reduce((a, b) => a + (isNaN(b[raw_fieldname]) ? 0 : b[raw_fieldname]), 0) / subArr.length;
+      const avg = (subArr.reduce((a, b) => a + (isNaN(b[raw_fieldname]) ? 0 : b[raw_fieldname]), 0) / subArr.length).toFixed(3);
       let exemplar = {...array_of_dicts[i]}
       exemplar[smooth_fieldname] = avg
       result.push(exemplar);
@@ -253,7 +253,7 @@ $(document).ready(function () {
     temp280Data = restoreMetricsStream('temp280');
     pm25Data = restoreMetricsStream('pm25');
 
-    drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth'], movingAvgHum(temp280Data));
+    drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(temp280Data));
     drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(temp680Data));
     drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
 
