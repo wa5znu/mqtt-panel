@@ -4,7 +4,7 @@ let topic = 'sensor/#';
 let useTLS = false;
 let cleansession = true;
 let reconnectTimeout = 3000;
-let maxDataPoints = 2400;
+let maxDataPoints = 86400;
 let mqtt;
     
 
@@ -58,6 +58,15 @@ function onConnectionLost(response) {
 }
 
 function onMessageArrived(message) {
+    try {
+	handleMessage(message);
+    } catch (exception) {
+        console.log("onMessageArrived exception", exception, message);
+	$('#status').html("onMessageArrived exception")
+            .attr('class', 'alert alert-warning');
+    }
+}
+function handleMessage(message) {
     let topic = message.destinationName;
     let payload = message.payloadString;
     let timestamp = Date().slice(16, 21);
@@ -84,7 +93,7 @@ function onMessageArrived(message) {
             var gas = extract_float_field('gas', payload);
 
             $('#bme680TempSensor').html(payload);
-            $('#bme680Label').text(temp + '°C ' + hum + '% ' + press.toFixed(3) + 'in ');
+            $('#bme680Label').text(temp + '°C ' + hum + '% ' + press + 'in ');
             $('#bme680Label').addClass('badge-default');
 
             temp680Data.push({
@@ -107,7 +116,7 @@ function onMessageArrived(message) {
             var press = (extract_float_field('press', payload) * 0.02953).toFixed(4);
 
             $('#bme280Sensor').html(payload);
-            $('#bme280Label').text(temp + '°C ' + hum + '% ' + press.toFixed(3) + 'in ');
+            $('#bme280Label').text(temp + '°C ' + hum + '% ' + press + 'in ');
             $('#bme280Label').addClass('badge-default');
 
             temp280Data.push({
