@@ -19,7 +19,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js" integrity="sha512-UXumZrZNiOwnTcZSHLOfcTs0aos2MzBWHXOHOuB0J/R44QB0dwY5JgfbvljXcklVf65Gc4El6RjZ+lnwd2az2g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.2.1/chartjs-plugin-zoom.min.js" integrity="sha512-klQv6lz2YR+MecyFYMFRuU2eAl8IPRo6zHnsc9n142TJuJHS8CG0ix4Oq9na9ceeg1u5EkBfZsFcV3U7J51iew==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-
     <script type="text/javascript" src="js/index.js"></script>
 </head>
 <body>
@@ -48,7 +47,7 @@
                     <tbody>
                         <tr>
                           <th>BM280</th>
-                            <td><small id="bme280TempSensor">(no value received)</small></td>
+                            <td><small id="bme280Sensor">(no value received)</small></td>
                         </tr>
                         <tr>
                         <tr>
@@ -74,7 +73,7 @@
                     <div class="card-body">
                         <div class="card-title">
                             BME280 
-                            <span id="bme280TempLabel" class="text-muted float-right badge">Unknown</span>
+                            <span id="bme280Label" class="text-muted float-right badge">Unknown</span>
                         </div>
                     </div>
                     <canvas id="bme280Chart" width="300" height="100"></canvas>
@@ -91,7 +90,7 @@
                             <span id="dustPm25Label" class="text-muted float-right badge">Unknown</span>
                         </div>
                     </div>
-                    <canvas id="dustChart" width="300" height="120"></canvas>
+                    <canvas id="dustChart" width="300" height="100"></canvas>
                 </div>
             </div>
 	</div>
