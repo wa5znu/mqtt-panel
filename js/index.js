@@ -8,9 +8,14 @@ let maxDataPoints = 86400;
 let mqtt;
     
 
-let temp680Data = new Array();
-let temp280Data = new Array();
-let pm25Data = new Array();
+var bme680Chart = null;
+var bme280Data = new Array();
+
+var bme280Chart = null;
+var bme280Data = new Array();
+
+var pm25Chart = null;
+var pm25Data = new Array();
 
 let metric_colors = {
     'temp':        'rgb(255,99,132)',
@@ -96,18 +101,19 @@ function handleMessage(message) {
             $('#bme680Label').text(temp + '°C ' + hum + '% ' + press + 'in ');
             $('#bme680Label').addClass('badge-default');
 
-            temp680Data.push({
+            bme680Data.push({
                 "timestamp": Date().slice(16, 21),
                 "temp": temp,
                 "hum": hum,
                 "press": press,
                 "gas": gas
             });
-            if (temp680Data.length >= maxDataPoints) {
-                temp680Data.shift()
+            if (bme680Data.length >= maxDataPoints) {
+                bme680Data.shift()
             }
-            saveMetricsStream('temp680', temp680Data);
-            drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(temp680Data));
+            saveMetricsStream('temp680', bme680Data);
+            bme680Chart.destroy();
+            bme680Chart = drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(bme680Data));
             break;
 
         case 'bme280':
@@ -119,17 +125,18 @@ function handleMessage(message) {
             $('#bme280Label').text(temp + '°C ' + hum + '% ' + press + 'in ');
             $('#bme280Label').addClass('badge-default');
 
-            temp280Data.push({
+            bme280Data.push({
                 "timestamp": Date().slice(16, 21),
                 "temp": temp,
                 "hum": hum,
                 "press": press
             });
-            if (temp280Data.length >= maxDataPoints) {
-                temp280Data.shift()
+            if (bme280Data.length >= maxDataPoints) {
+                bme280Data.shift()
             }
-            saveMetricsStream('temp280', temp280Data);
-	            drawChart('bme280Chart', ['temp', 'press', 'hum', 'hum_smooth', ], movingAvgHum(temp280Data));
+            saveMetricsStream('temp280', bme280Data);
+            bme280Chart.destroy();
+            bme280Chart = drawChart('bme280Chart', ['temp', 'press', 'hum', 'hum_smooth', ], movingAvgHum(bme280Data));
             break;
 
         case 'dust':
@@ -147,7 +154,8 @@ function handleMessage(message) {
                 pm25Data.shift()
             }
             saveMetricsStream('pm25', pm25Data);
-            drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
+            dustChart.destroy();
+            dustChart = drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
             break;
 
         default:
@@ -156,6 +164,8 @@ function handleMessage(message) {
     }
 }
 
+// caller should call destroy on result before calling again
+// on same canvas
 function drawChart(chart_id, keys, data) {
     // console.log("drawChart", chart_id, keys, data);
     let ctx = document.getElementById(chart_id).getContext("2d");
@@ -197,6 +207,7 @@ function drawChart(chart_id, keys, data) {
     }
 
     let chart = new Chart(ctx, {type: 'line', data: chart_data, options:chart_options});
+    return chart;
 }
 
 
@@ -258,13 +269,13 @@ function movingAvg(array_of_dicts, raw_fieldname, countBefore, countAfter, smoot
 }
 
 $(document).ready(function () {
-    temp680Data = restoreMetricsStream('temp680');
-    temp280Data = restoreMetricsStream('temp280');
+    bme680Data = restoreMetricsStream('temp680');
+    bme280Data = restoreMetricsStream('temp280');
     pm25Data = restoreMetricsStream('pm25');
 
-    drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(temp280Data));
-    drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(temp680Data));
-    drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
+    bme280Chart = drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(bme280Data));
+    bme680Chart = drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(bme680Data));
+    dustChart = drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
 
     MQTTconnect();
 });
