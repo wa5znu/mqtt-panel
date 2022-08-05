@@ -149,8 +149,10 @@ function handleMessage(message) {
                 "pm25": pm25
             };
 
-            data = movingAvgPM25(pm25Data);
+            data = movingAvgPM25([...pm25Data, data]).slice(-1);
+            console.log("dust augmented data", data);
             addToMetricsStream('pm25', pm25Data, data, dustChart);
+
             // dustChart = drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
             break;
         }
@@ -278,7 +280,6 @@ function movingAvg(array_of_dicts, raw_fieldname, countBefore, countAfter, smoot
   const result = [];
   for (let i = 0; i < array_of_dicts.length; i++) {
       const subArr = array_of_dicts.slice(Math.max(i - countBefore, 0), Math.min(i + countAfter + 1, array_of_dicts.length));
-      console.log(subArr);
       const avg = (subArr.reduce((a, b) => a + (isNaN(b[raw_fieldname]) ? 0 : b[raw_fieldname]), 0) / subArr.length);
       let exemplar = {...array_of_dicts[i]}
       exemplar[smooth_fieldname] = avg.toFixed(3);
