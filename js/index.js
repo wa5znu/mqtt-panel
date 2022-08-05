@@ -12,7 +12,15 @@ let temp680Data = new Array();
 let temp280Data = new Array();
 let pm25Data = new Array();
 
-
+let metric_colors = {
+    'temp':        'rgb(255,99,132)',
+    'hum':         'rgba(99,255,132, 0.25)',
+    'hum_smooth':  'rgb(99,255,132)',
+    'press':       'rgb(132,99,255)',
+    'pm25':        'rgba(66,128,50, 0.25)',
+    'pm25_smooth': 'rgb(66,128,50)'
+}
+        
 function MQTTconnect() {
     if (typeof path == "undefined") {
         path = '/';
@@ -90,7 +98,7 @@ function onMessageArrived(message) {
                 temp680Data.shift()
             }
             saveMetricsStream('temp680', temp680Data);
-            drawChart('bme680Chart', ['temp', 'hum', 'press'], temp680Data);
+            drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(temp680Data));
             break;
 
         case 'bme280':
@@ -112,7 +120,7 @@ function onMessageArrived(message) {
                 temp280Data.shift()
             }
             saveMetricsStream('temp280', temp280Data);
-            drawChart('bme280Chart', ['temp', 'hum', 'press'], temp280Data);
+            drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(temp280Data));
             break;
 
         case 'dust':
@@ -130,7 +138,7 @@ function onMessageArrived(message) {
                 pm25Data.shift()
             }
             saveMetricsStream('pm25', pm25Data);
-            drawChart('dustChart', ['pm25'], movingAvgPM25(pm25Data));
+            drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
             break;
 
         default:
@@ -143,21 +151,13 @@ function drawChart(chart_id, keys, data) {
     // console.log("drawChart", chart_id, keys, data);
     let ctx = document.getElementById(chart_id).getContext("2d");
 
-    let colors = {
-        'temp':  'rgb(255,99,132)',
-        'hum':   'rgb(99,255,132)',
-        'press': 'rgb(132,99,255)',
-        'pm25':  'rgb(132,255,99)'
-    }
-        
     let chart_data = {
         "labels": data.map((d) => d.timestamp),
         backgroundColor: 'rgb(255, 99, 132)',
         datasets: keys.map((key) => ({
             label: key,
             data: data,
-            borderColor: colors[key],
-            borderWidth: 1,
+            borderColor: metric_colors[key],
             parsing: {
                 xAxisKey: 'timestamp',
                 yAxisKey: key,
@@ -170,7 +170,7 @@ function drawChart(chart_id, keys, data) {
         legend: {display: true},
 	// scales: { y: { beginAtZero: true } },
 	scales: { y: { type: 'logarithmic', bounds: 'ticks', ticks: { major: { enabled: true } } } },
-	showLine: false,
+	showLine: true,
     }
 
     let chart = new Chart(ctx, {type: 'line', data: chart_data, options:chart_options});
@@ -198,12 +198,18 @@ function restoreMetricsStream(metric_name) {
 }
 
 
+function movingAvgHum(data) {
+    return movingAvg(data, 'hum', 30, 30, 'hum_smooth');
+}
+
 function movingAvgPM25(data) {
-    return movingAvg(data, 'pm25', 1, 1);
+    return movingAvg(data, 'pm25', 30, 30, 'pm25_smooth');
 }
 
 // https://stackoverflow.com/a/63348486 https://stackoverflow.com/users/1583422/frank-orellana
-// hacked to operate on a dict { ... `fieldname`: value, ... }
+// hacked to operate on a dict
+// input  { ... `raw_fieldname`: value, ... }
+// output { ... `raw_fieldname`: value, `smooth_fieldname`: smooth_value } 
 // old docs:
 // const myArr = [1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9];
 // // averages of 7 (i.e. 7 day moving average):
@@ -215,14 +221,14 @@ function movingAvgPM25(data) {
 // console.log('7 middle:',...avg7Middle.map(x => x.toFixed(1)));
 // console.log('7 after: ',...avg7After.map(x => x.toFixed(1)));
 
-function movingAvg(array_of_dicts, fieldname, countBefore, countAfter) {
+function movingAvg(array_of_dicts, raw_fieldname, countBefore, countAfter, smooth_fieldname) {
   if (countAfter == undefined) countAfter = 0;
   const result = [];
   for (let i = 0; i < array_of_dicts.length; i++) {
       const subArr = array_of_dicts.slice(Math.max(i - countBefore, 0), Math.min(i + countAfter + 1, array_of_dicts.length));
-      const avg = subArr.reduce((a, b) => a + (isNaN(b[fieldname]) ? 0 : b[fieldname]), 0) / subArr.length;
+      const avg = subArr.reduce((a, b) => a + (isNaN(b[raw_fieldname]) ? 0 : b[raw_fieldname]), 0) / subArr.length;
       let exemplar = {...array_of_dicts[i]}
-      exemplar[fieldname] = avg
+      exemplar[smooth_fieldname] = avg
       result.push(exemplar);
   }
   return result;
@@ -233,9 +239,9 @@ $(document).ready(function () {
     temp280Data = restoreMetricsStream('temp280');
     pm25Data = restoreMetricsStream('pm25');
 
-    drawChart('bme680Chart', ['temp', 'hum', 'press'], temp680Data);
-    drawChart('bme280Chart', ['temp', 'hum', 'press'], temp280Data);
-    drawChart('dustChart', ['pm25'], movingAvgPM25(pm25Data));
+    drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth'], movingAvgHum(temp280Data));
+    drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(temp680Data));
+    drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
 
     MQTTconnect();
 });
