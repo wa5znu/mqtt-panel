@@ -165,12 +165,26 @@ function drawChart(chart_id, keys, data) {
         })),
     }
 
+    let plugin_options = {
+	zoom: {
+            zoom: {
+		wheel: { enabled: true },
+		pinch: { enabled: true },
+		mode: 'x',
+            },
+	    pan: {
+		enabled: true,
+		mode: 'x',
+	    },
+	}
+    }
+
     // console.log(chart_data);
-    chart_options = {
+    let chart_options = {
         legend: {display: true},
-	// scales: { y: { beginAtZero: true } },
 	scales: { y: { type: 'logarithmic', bounds: 'ticks', ticks: { major: { enabled: true } } } },
 	showLine: true,
+	plugins: plugin_options,
     }
 
     let chart = new Chart(ctx, {type: 'line', data: chart_data, options:chart_options});
