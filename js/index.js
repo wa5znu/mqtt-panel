@@ -6,7 +6,7 @@ let cleansession = true;
 let reconnectTimeout = 3000;
 let maxDataPoints = 86400;
 let mqtt;
-   
+
 
 var bme680Chart = null;
 var bme280Data = new Array();
@@ -25,7 +25,7 @@ let metric_colors = {
     'pm25':        'rgba(66,128,50, 0.25)',
     'pm25_smooth': 'rgb(66,128,50)'
 }
-        
+
 function MQTTconnect() {
     if (typeof path == "undefined") {
         path = '/';
@@ -76,94 +76,101 @@ function handleMessage(message) {
     let topic = message.destinationName;
     let payload = message.payloadString;
     let timestamp = Date().slice(16, 21);
+
     console.log(timestamp + " topic=" + topic + " payload=" + payload);
     $('#message').html(timestamp + ' ' + topic + ': ' + payload);
+
     let topics = topic.split('/');
     let sensor_type = topics[1];
 
-    function extract_float_field(field_name, payload) {
-        var r = RegExp(`(?:^|;)${field_name}=([0-9.]+)(?:;|$)`);
-        var match = r.exec(payload);
-        var m = match[1];
-        var f = parseFloat(m);
-        return f;
-    }
-
-    // sensor/bme680/QTPY_1091a83186e0 temp=28.46;hum=50.51;press=1015.772;gas=47096
-    // console.log('topic', topic, 'payload', payload, 'sensor type', sensor_type);
     switch (sensor_type) {
-        case 'bme680': {
-            var temp = extract_float_field('temp', payload);
-            var hum = extract_float_field('hum', payload);
-            var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
-            var gas = extract_float_field('gas', payload);
-
-            $('#bme680TempSensor').html(payload);
-            $('#bme680Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in ' + gas + ' µΩ'); 
-            $('#bme680Label').addClass('badge-default');
-
-            let label = Date().slice(16, 21);
-            let data = {
-                "timestamp": label,
-                "temp": temp,
-                "hum": hum,
-                "press": press,
-                "gas": gas
-            }
-
-            console.log("bme680 before", data);
-            data = movingAvgHum([...bme680Data, data])[bme680Data.length];
-            console.log("bme680 after", data);
-            addToMetricsStream('temp680', bme680Data, label, data, bme680Chart);
+        case 'bme680':
+            handle_bme680(topic, payload);
             break;
-        }
 
-        case 'bme280': {
-            var temp = extract_float_field('temp', payload);
-            var hum = extract_float_field('hum', payload);
-            var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
-
-            $('#bme280Sensor').html(payload);
-            $('#bme280Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in');
-            $('#bme280Label').addClass('badge-default');
-
-            let label = Date().slice(16, 21);
-            let data = {
-                "timestamp": label,
-                "temp": temp,
-                "hum": hum,
-                "press": press
-            };
-
-            data = movingAvgHum([...bme280Data, data])[bme280Data.length];
-            addToMetricsStream('temp280', bme280Data, label, data, bme280Chart);
+        case 'bme280':
+            handle_bme280(topic, payload);
             break;
-        }
 
-        case 'dust': {
-            var pm25 = extract_float_field('pm2_5', payload);
-
-            $('#dustPm25Sensor').html(payload);
-            $('#dustPm25Label').text(pm25 + ' μ');
-            $('#dustPm25Label').addClass('badge-default');
-
-            let label = Date().slice(16, 21);
-            let data = {
-                "timestamp": label,
-                "pm25": pm25
-            };
-
-            data = movingAvgPM25([...pm25Data, data])[pm25Data.length];
-            addToMetricsStream('pm25', pm25Data, label, data, dustChart);
+        case 'dust':
+            handle_dust(topic, payload);
             break;
-        }
 
-        default: {
+        default:
             console.log('Error: Data do not match the MQTT topic.', payload);
             break;
-        }
     }
 }
+
+function handle_bme680(topic, payload) {
+    var temp = extract_float_field('temp', payload);
+    var hum = extract_float_field('hum', payload);
+    var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
+    var gas = extract_float_field('gas', payload);
+
+    $('#bme680TempSensor').html(payload);
+    $('#bme680Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in ' + gas + ' Ω');
+    $('#bme680Label').addClass('badge-default');
+
+    let label = Date().slice(16, 21);
+    let data = {
+        "timestamp": label,
+        "temp": temp,
+        "hum": hum,
+        "press": press,
+        "gas": gas
+    }
+
+    data = movingAvgHum([...bme680Data, data])[bme680Data.length];
+    addToMetricsStream('temp680', bme680Data, label, data, bme680Chart);
+}
+
+function handle_bme280(topic, payload) {
+    var temp = extract_float_field('temp', payload);
+    var hum = extract_float_field('hum', payload);
+    var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
+
+    $('#bme280Sensor').html(payload);
+    $('#bme280Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in');
+    $('#bme280Label').addClass('badge-default');
+
+    let label = Date().slice(16, 21);
+    let data = {
+        "timestamp": label,
+        "temp": temp,
+        "hum": hum,
+        "press": press
+    };
+
+    data = movingAvgHum([...bme280Data, data])[bme280Data.length];
+    addToMetricsStream('temp280', bme280Data, label, data, bme280Chart);
+}
+
+function handle_dust(topic, payload) {
+    var pm25 = extract_float_field('pm2_5', payload);
+
+    $('#dustPm25Sensor').html(payload);
+    $('#dustPm25Label').text(pm25 + ' μ');
+    $('#dustPm25Label').addClass('badge-default');
+
+    let label = Date().slice(16, 21);
+    let data = {
+        "timestamp": label,
+        "pm25": pm25
+    };
+
+    data = movingAvgPM25([...pm25Data, data])[pm25Data.length];
+    addToMetricsStream('pm25', pm25Data, label, data, dustChart);
+}
+
+function extract_float_field(field_name, payload) {
+    var r = RegExp(`(?:^|;)${field_name}=([0-9.]+)(?:;|$)`);
+    var match = r.exec(payload);
+    var m = match[1];
+    var f = parseFloat(m);
+    return f;
+}
+
 
 // https://www.chartjs.org/docs/latest/developers/updates.html
 function addChartData(chart, label, data) {
@@ -265,7 +272,7 @@ function movingAvgPM25(data) {
 // https://stackoverflow.com/a/63348486 https://stackoverflow.com/users/1583422/frank-orellana
 // hacked to operate on a dict
 // input  { ... `raw_fieldname`: value, ... }
-// output { ... `raw_fieldname`: value, `smooth_fieldname`: smooth_value } 
+// output { ... `raw_fieldname`: value, `smooth_fieldname`: smooth_value }
 //
 // stackoverflow docs:
 // const myArr = [1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9];
