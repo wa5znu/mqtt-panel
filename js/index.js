@@ -95,7 +95,7 @@ function handleMessage(message) {
         case 'bme680': {
             var temp = extract_float_field('temp', payload);
             var hum = extract_float_field('hum', payload);
-            var press = (extract_float_field('press', payload) * 0.02953).toFixed(4);
+            var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
             var gas = extract_float_field('gas', payload);
 
             $('#bme680TempSensor').html(payload);
@@ -111,15 +111,17 @@ function handleMessage(message) {
                 "gas": gas
             }
 
-            data = movingAvgHum([...bme680Data, data]).slice(-1);
-            addToMetricsStream('temp680', bme680Data, data, bme680Chart);
+            console.log("bme680 before", data);
+            data = movingAvgHum([...bme680Data, data])[bme680Data.length];
+            console.log("bme680 after", data);
+            addToMetricsStream('temp680', bme680Data, label, data, bme680Chart);
             break;
         }
 
         case 'bme280': {
             var temp = extract_float_field('temp', payload);
             var hum = extract_float_field('hum', payload);
-            var press = (extract_float_field('press', payload) * 0.02953).toFixed(4);
+            var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
 
             $('#bme280Sensor').html(payload);
             $('#bme280Label').text(temp + '°C ' + hum + '% ' + press + 'in ');
@@ -133,8 +135,8 @@ function handleMessage(message) {
                 "press": press
             };
 
-            data = movingAvgHum([...bme280Data, data]).slice(-1);
-            addToMetricsStream('temp280', bme280Data, data, bme280Chart);
+            data = movingAvgHum([...bme280Data, data])[bme280Data.length];
+            addToMetricsStream('temp280', bme280Data, label, data, bme280Chart);
             break;
         }
 
@@ -151,8 +153,8 @@ function handleMessage(message) {
                 "pm25": pm25
             };
 
-            data = movingAvgPM25([...pm25Data, data]).slice(-1);
-            addToMetricsStream('pm25', pm25Data, data, dustChart);
+            data = movingAvgPM25([...pm25Data, data])[pm25Data.length];
+            addToMetricsStream('pm25', pm25Data, label, data, dustChart);
             break;
         }
 
@@ -163,9 +165,11 @@ function handleMessage(message) {
     }
 }
 
-function addChartData(chart, data) {
-    console.log("addChartData", chart, data);
+// https://www.chartjs.org/docs/latest/developers/updates.html
+function addChartData(chart, label, data) {
+    console.log("addChartData", chart, label, data);
     let chart_datasets = chart.data.datasets;
+    chart.data.labels.push(label);
     chart_datasets.forEach((dataset) => {
         dataset.data.push(data);
     });
@@ -220,13 +224,13 @@ function drawChart(chart_id, keys, data) {
 }
 
 
-function addToMetricsStream(metrics_name, metrics_stream, new_data, chart) {
+function addToMetricsStream(metrics_name, metrics_stream, new_label, new_data, chart) {
     metrics_stream.push(new_data);
     if (metrics_stream.length >= maxDataPoints) {
         metrics_stream.shift()
     }
     saveMetricsStream(metrics_name, metrics_stream);
-    addChartData(chart, new_data);
+    addChartData(chart, new_label, new_data);
 }
 
 
@@ -281,7 +285,7 @@ function movingAvg(array_of_dicts, raw_fieldname, countBefore, countAfter, smoot
       const subArr = array_of_dicts.slice(Math.max(i - countBefore, 0), Math.min(i + countAfter + 1, array_of_dicts.length));
       const avg = (subArr.reduce((a, b) => a + (isNaN(b[raw_fieldname]) ? 0 : b[raw_fieldname]), 0) / subArr.length);
       let exemplar = {...array_of_dicts[i]}
-      exemplar[smooth_fieldname] = avg.toFixed(3);
+      exemplar[smooth_fieldname] = (+(avg.toFixed(3)));
       result.push(exemplar);
   }
   return result;
