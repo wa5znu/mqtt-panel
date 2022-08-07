@@ -99,7 +99,7 @@ function handleMessage(message) {
             var gas = extract_float_field('gas', payload);
 
             $('#bme680TempSensor').html(payload);
-            $('#bme680Label').text(temp + '°C ' + hum + '% ' + press + 'in ');
+            $('#bme680Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in ' + gas + ' µΩ'); 
             $('#bme680Label').addClass('badge-default');
 
             let label = Date().slice(16, 21);
@@ -124,7 +124,7 @@ function handleMessage(message) {
             var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
 
             $('#bme280Sensor').html(payload);
-            $('#bme280Label').text(temp + '°C ' + hum + '% ' + press + 'in ');
+            $('#bme280Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in');
             $('#bme280Label').addClass('badge-default');
 
             let label = Date().slice(16, 21);
