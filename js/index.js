@@ -208,7 +208,6 @@ function drawChart(chart_id, keys, data) {
         zoom: {
             zoom: {
                 wheel: { enabled: true },
-                pinch: { enabled: true },
                 mode: 'x',
             },
             pan: {
