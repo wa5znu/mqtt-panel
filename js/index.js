@@ -77,7 +77,7 @@ function onMessageArrived(message) {
 function handleMessage(message) {
     let topic = message.destinationName;
     let payload = message.payloadString;
-    let timestamp = Date().slice(16, 21);
+    let timestamp = makeTimestamp();
 
     console.log(timestamp + " topic=" + topic + " payload=" + payload);
     $('#message').html(timestamp + ' ' + topic + ': ' + payload);
@@ -87,24 +87,33 @@ function handleMessage(message) {
 
     switch (sensor_type) {
         case 'bme680':
-            handle_bme680(topic, payload);
+            handle_bme680(timestamp, topic, payload);
             break;
 
         case 'bme280':
-            handle_bme280(topic, payload);
+            handle_bme280(timestamp, topic, payload);
             break;
 
         case 'dust':
-            handle_dust(topic, payload);
+            handle_dust(timestamp, topic, payload);
             break;
 
         default:
-            console.log('Error: Data do not match the MQTT topic.', payload);
+            console.log('Error: Data do not match the MQTT topic.', timestamp, topic, payload);
             break;
     }
 }
 
-function handle_bme680(topic, payload) {
+function makeTimestamp() {
+    let d = Date();
+    let monthday = d.toLocaleDateString('en-us', { month:"numeric", day:"numeric"});
+    let t = d.toLocaleTimeString('en-gb').slice(0, 5);
+    return monthday + " " + t;
+    // return date.getMonth() + "-" + date.getDay() + date.toTimeString().slice(0,5);
+    // return Date().slice(16, 21);
+}
+
+function handle_bme680(timestamp, topic, payload) {
     var temp = extract_float_field('temp', payload);
     var hum = extract_float_field('hum', payload);
     var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
@@ -114,9 +123,9 @@ function handle_bme680(topic, payload) {
     $('#bme680Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in ' + gas + ' Ω');
     $('#bme680Label').addClass('badge-default');
 
-    let label = Date().slice(16, 21);
+    let label = timestamp;
     let data = {
-        "timestamp": label,
+        "timestamp": timestamp,
         "temp": temp,
         "hum": hum,
         "press": press,
@@ -127,7 +136,7 @@ function handle_bme680(topic, payload) {
     addToMetricsStream('temp680', bme680Data, label, data, bme680Chart);
 }
 
-function handle_bme280(topic, payload) {
+function handle_bme280(timestamp, topic, payload) {
     var temp = extract_float_field('temp', payload);
     var hum = extract_float_field('hum', payload);
     var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
@@ -136,9 +145,9 @@ function handle_bme280(topic, payload) {
     $('#bme280Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in');
     $('#bme280Label').addClass('badge-default');
 
-    let label = Date().slice(16, 21);
+    let label = timestamp;
     let data = {
-        "timestamp": label,
+        "timestamp": timestamp,
         "temp": temp,
         "hum": hum,
         "press": press
@@ -148,16 +157,16 @@ function handle_bme280(topic, payload) {
     addToMetricsStream('temp280', bme280Data, label, data, bme280Chart);
 }
 
-function handle_dust(topic, payload) {
+function handle_dust(timestamp, topic, payload) {
     var pm25 = extract_float_field('pm2_5', payload);
 
     $('#dustPm25Sensor').html(payload);
     $('#dustPm25Label').text(pm25 + ' μ');
     $('#dustPm25Label').addClass('badge-default');
 
-    let label = Date().slice(16, 21);
+    let label = timestamp;
     let data = {
-        "timestamp": label,
+        "timestamp": timestamp,
         "pm25": pm25
     };
 
