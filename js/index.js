@@ -1,3 +1,5 @@
+// -*-mode: js; js-switch-indent-offset: 4; indent-tags-mode: nil -*-
+
 let host = 'mqtt.klotz.me';
 let port = 8080;
 let topic = 'sensor/#';
