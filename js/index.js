@@ -1,12 +1,19 @@
+// -*-mode: js; js-switch-indent-offset: 4; indent-tags-mode: nil -*-
+
 let host = 'mqtt.klotz.me';
 let port = 8080;
 let topic = 'sensor/#';
 let useTLS = false;
 let cleansession = true;
 let reconnectTimeout = 3000;
-let maxDataPoints = 86400;
+let maxDataPointsSaved = 86400;
+let maxChartPoints = 2400;
 let mqtt;
-    
+let DUAL_LINEAR_AXIS_SCALE_TYPE = "dual-linear";
+let LINEAR_AXIS_SCALE_TYPE = "linear";
+let LOG_AXIS_SCALE_TYPE = "logarithmic";
+
+
 
 var bme680Chart = null;
 var bme280Data = new Array();
@@ -14,7 +21,7 @@ var bme280Data = new Array();
 var bme280Chart = null;
 var bme280Data = new Array();
 
-var pm25Chart = null;
+var dustChart = null;
 var pm25Data = new Array();
 
 let metric_colors = {
@@ -25,7 +32,7 @@ let metric_colors = {
     'pm25':        'rgba(66,128,50, 0.25)',
     'pm25_smooth': 'rgb(66,128,50)'
 }
-        
+
 function MQTTconnect() {
     if (typeof path == "undefined") {
         path = '/';
@@ -71,102 +78,132 @@ function onMessageArrived(message) {
             .attr('class', 'alert alert-warning');
     }
 }
+
 function handleMessage(message) {
     let topic = message.destinationName;
     let payload = message.payloadString;
-    let timestamp = Date().slice(16, 21);
+    let timestamp = makeTimestamp();
+
     console.log(timestamp + " topic=" + topic + " payload=" + payload);
     $('#message').html(timestamp + ' ' + topic + ': ' + payload);
+
     let topics = topic.split('/');
     let sensor_type = topics[1];
 
-    function extract_float_field(field_name, payload) {
-        var r = RegExp(`(?:^|;)${field_name}=([0-9.]+)(?:;|$)`);
-        var match = r.exec(payload);
-        var m = match[1];
-        var f = parseFloat(m);
-        return f;
-    }
-
-    // sensor/bme680/QTPY_1091a83186e0 temp=28.46;hum=50.51;press=1015.772;gas=47096
-    // console.log('topic', topic, 'payload', payload, 'sensor type', sensor_type);
     switch (sensor_type) {
         case 'bme680':
-            var temp = extract_float_field('temp', payload);
-            var hum = extract_float_field('hum', payload);
-            var press = (extract_float_field('press', payload) * 0.02953).toFixed(4);
-            var gas = extract_float_field('gas', payload);
-
-            $('#bme680TempSensor').html(payload);
-            $('#bme680Label').text(temp + '°C ' + hum + '% ' + press + 'in ');
-            $('#bme680Label').addClass('badge-default');
-
-            bme680Data.push({
-                "timestamp": Date().slice(16, 21),
-                "temp": temp,
-                "hum": hum,
-                "press": press,
-                "gas": gas
-            });
-            if (bme680Data.length >= maxDataPoints) {
-                bme680Data.shift()
-            }
-            saveMetricsStream('temp680', bme680Data);
-            bme680Chart.destroy();
-            bme680Chart = drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(bme680Data));
+            handle_bme680(timestamp, topic, payload);
             break;
 
         case 'bme280':
-            var temp = extract_float_field('temp', payload);
-            var hum = extract_float_field('hum', payload);
-            var press = (extract_float_field('press', payload) * 0.02953).toFixed(4);
-
-            $('#bme280Sensor').html(payload);
-            $('#bme280Label').text(temp + '°C ' + hum + '% ' + press + 'in ');
-            $('#bme280Label').addClass('badge-default');
-
-            bme280Data.push({
-                "timestamp": Date().slice(16, 21),
-                "temp": temp,
-                "hum": hum,
-                "press": press
-            });
-            if (bme280Data.length >= maxDataPoints) {
-                bme280Data.shift()
-            }
-            saveMetricsStream('temp280', bme280Data);
-            bme280Chart.destroy();
-            bme280Chart = drawChart('bme280Chart', ['temp', 'press', 'hum', 'hum_smooth', ], movingAvgHum(bme280Data));
+            handle_bme280(timestamp, topic, payload);
             break;
 
         case 'dust':
-            var pm25 = extract_float_field('pm2_5', payload);
-
-            $('#dustPm25Sensor').html(payload);
-            $('#dustPm25Label').text(pm25 + ' μ');
-            $('#dustPm25Label').addClass('badge-default');
-
-            pm25Data.push({
-                "timestamp": Date().slice(16, 21),
-                "pm25": pm25
-            });
-            if (pm25Data.length >= maxDataPoints) {
-                pm25Data.shift()
-            }
-            saveMetricsStream('pm25', pm25Data);
-            dustChart.destroy();
-            dustChart = drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
+            handle_dust(timestamp, topic, payload);
             break;
 
         default:
-            console.log('Error: Data do not match the MQTT topic.', payload);
+            console.log('Error: Data do not match the MQTT topic.', timestamp, topic, payload);
             break;
     }
 }
 
+function makeTimestamp() {
+    let d = new Date();
+    let monthday = d.toLocaleDateString('en-us', { month:"numeric", day:"numeric"});
+    let t = d.toLocaleTimeString('en-gb').slice(0, 5);
+    return monthday + " " + t;
+    // return date.getMonth() + "-" + date.getDay() + date.toTimeString().slice(0,5);
+    // return Date().slice(16, 21);
+}
+
+
+function handle_bme680(timestamp, topic, payload) {
+    var temp = extract_float_field('temp', payload);
+    var hum = extract_float_field('hum', payload);
+    var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
+    var gas = extract_float_field('gas', payload);
+
+    $('#bme680TempSensor').html(payload);
+    $('#bme680Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in ' + gas + ' Ω');
+    $('#bme680Label').addClass('badge-default');
+
+    let label = timestamp;
+    let data = {
+        "timestamp": timestamp,
+        "temp": temp,
+        "hum": hum,
+        "press": press,
+        "gas": gas
+    }
+
+    data = movingAvgHum([...bme680Data, data])[bme680Data.length];
+    addToMetricsStream('temp680', bme680Data, label, data, bme680Chart);
+}
+
+function handle_bme280(timestamp, topic, payload) {
+    var temp = extract_float_field('temp', payload);
+    var hum = extract_float_field('hum', payload);
+    var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
+
+    $('#bme280Sensor').html(payload);
+    $('#bme280Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in');
+    $('#bme280Label').addClass('badge-default');
+
+    let label = timestamp;
+    let data = {
+        "timestamp": timestamp,
+        "temp": temp,
+        "hum": hum,
+        "press": press
+    };
+
+    data = movingAvgHum([...bme280Data, data])[bme280Data.length];
+    addToMetricsStream('temp280', bme280Data, label, data, bme280Chart);
+}
+
+function handle_dust(timestamp, topic, payload) {
+    var pm25 = extract_float_field('pm2_5', payload);
+
+    $('#dustPm25Sensor').html(payload);
+    $('#dustPm25Label').text(pm25 + ' μ');
+    $('#dustPm25Label').addClass('badge-default');
+
+    let label = timestamp;
+    let data = {
+        "timestamp": timestamp,
+        "pm25": pm25
+    };
+
+    data = movingAvgPM25([...pm25Data, data])[pm25Data.length];
+    addToMetricsStream('pm25', pm25Data, label, data, dustChart);
+}
+
+function extract_float_field(field_name, payload) {
+    var r = RegExp(`(?:^|;)${field_name}=([0-9.]+)(?:;|$)`);
+    var match = r.exec(payload);
+    var m = match[1];
+    var f = parseFloat(m);
+    return f;
+}
+
+
+// https://www.chartjs.org/docs/latest/developers/updates.html
+function addChartData(chart, label, data) {
+    console.log("addChartData", chart, label, data);
+    let chart_datasets = chart.data.datasets;
+    chart.data.labels.push(label);
+    chart_datasets.forEach((dataset) => {
+        dataset.data.push(data);
+    });
+    chart.update();
+}
+
+
 // caller should call destroy on result before calling again
-// on same canvas
-function drawChart(chart_id, keys, data) {
+// on same canvas.  Or use addChartData instead.
+function drawChart(chart_id, keys, data, axis_scale_type) {
     // console.log("drawChart", chart_id, keys, data);
     let ctx = document.getElementById(chart_id).getContext("2d");
 
@@ -175,12 +212,13 @@ function drawChart(chart_id, keys, data) {
         backgroundColor: 'rgb(255, 99, 132)',
         datasets: keys.map((key) => ({
             label: key,
-            data: data,
+            data: data.slice(-maxChartPoints),
             borderColor: metric_colors[key],
             parsing: {
                 xAxisKey: 'timestamp',
                 yAxisKey: key,
             },
+	    yAxisID: (key == 'hum' || key == 'hum_smooth') ? 'y1' : 'y',
         })),
     }
 
@@ -188,7 +226,6 @@ function drawChart(chart_id, keys, data) {
         zoom: {
             zoom: {
                 wheel: { enabled: true },
-                pinch: { enabled: true },
                 mode: 'x',
             },
             pan: {
@@ -198,16 +235,79 @@ function drawChart(chart_id, keys, data) {
         }
     }
 
+    var scale_options = calculateAxisOptions(axis_scale_type);
+
     // console.log(chart_data);
     let chart_options = {
-        legend: {display: true},
-        scales: { y: { type: 'logarithmic', bounds: 'ticks', ticks: { major: { enabled: true } } } },
+        legend: { display: true },
+        scales: scale_options,
         showLine: true,
         plugins: plugin_options,
     }
 
     let chart = new Chart(ctx, {type: 'line', data: chart_data, options:chart_options});
     return chart;
+}
+
+function calculateAxisOptions(axisScaleType) {
+    switch (axisScaleType) {
+	case LOG_AXIS_SCALE_TYPE:
+	    return {
+		y: { type: 'logarithmic',
+		     bounds: 'ticks',
+		     ticks: { major: { enabled: true } }
+		   }
+	    }
+	    
+	case LINEAR_AXIS_SCALE_TYPE:
+	    return {
+		y: { type: 'linear',
+		     bounds: 'ticks',
+		     ticks: { major: { enabled: true } },
+		     title: { text: 'PM 2.5 μ', display: true }, // fixme
+		   }
+	    }
+
+	case DUAL_LINEAR_AXIS_SCALE_TYPE:
+	    return {
+//		x: {
+//		    title: {
+//			text: 'date/time',
+//		    }
+//		},
+//
+		y: {
+		    type: 'linear',
+		    display: true,
+		    position: 'left',
+		    title: { text: '℃ | in Hg', display: true },
+		},
+		y1: {
+		    type: 'linear',
+		    display: true,
+		    position: 'right',
+		    ticks: { major: { enabled: true } },
+		    title: { text: '%', display: true },
+		    // grid line settings
+		    grid: {
+			drawOnChartArea: false, // only want the grid lines for one axis to show up
+		    },
+		},
+	    };
+
+	default:
+	    return null;
+    }
+}
+
+
+function addToMetricsStream(metrics_name, metrics_stream, new_label, new_data, chart) {
+    metrics_stream.push(new_data);
+    if (metrics_stream.length >= maxDataPointsSaved) {
+        metrics_stream.shift()
+    }
+    saveMetricsStream(metrics_name, metrics_stream);
+    addChartData(chart, new_label, new_data);
 }
 
 
@@ -231,7 +331,6 @@ function restoreMetricsStream(metric_name) {
     return metrics_values || new Array();
 }
 
-
 function movingAvgHum(data, raw_field, smooth_field) {
     return movingAvg(data, 'hum', 30, 30, 'hum_smooth');
 }
@@ -243,8 +342,9 @@ function movingAvgPM25(data) {
 // https://stackoverflow.com/a/63348486 https://stackoverflow.com/users/1583422/frank-orellana
 // hacked to operate on a dict
 // input  { ... `raw_fieldname`: value, ... }
-// output { ... `raw_fieldname`: value, `smooth_fieldname`: smooth_value } 
-// old docs:
+// output { ... `raw_fieldname`: value, `smooth_fieldname`: smooth_value }
+//
+// stackoverflow docs:
 // const myArr = [1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9];
 // // averages of 7 (i.e. 7 day moving average):
 // const avg7Before = movingAvg(myArr, 6); //6 before and the current
@@ -260,9 +360,9 @@ function movingAvg(array_of_dicts, raw_fieldname, countBefore, countAfter, smoot
   const result = [];
   for (let i = 0; i < array_of_dicts.length; i++) {
       const subArr = array_of_dicts.slice(Math.max(i - countBefore, 0), Math.min(i + countAfter + 1, array_of_dicts.length));
-      const avg = (subArr.reduce((a, b) => a + (isNaN(b[raw_fieldname]) ? 0 : b[raw_fieldname]), 0) / subArr.length).toFixed(3);
+      const avg = (subArr.reduce((a, b) => a + (isNaN(b[raw_fieldname]) ? 0 : b[raw_fieldname]), 0) / subArr.length);
       let exemplar = {...array_of_dicts[i]}
-      exemplar[smooth_fieldname] = avg
+      exemplar[smooth_fieldname] = (+(avg.toFixed(3)));
       result.push(exemplar);
   }
   return result;
@@ -273,9 +373,9 @@ $(document).ready(function () {
     bme280Data = restoreMetricsStream('temp280');
     pm25Data = restoreMetricsStream('pm25');
 
-    bme280Chart = drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(bme280Data));
-    bme680Chart = drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(bme680Data));
-    dustChart = drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
+    bme280Chart = drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth', 'press'], bme280Data, DUAL_LINEAR_AXIS_SCALE_TYPE);
+    bme680Chart = drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], bme680Data, DUAL_LINEAR_AXIS_SCALE_TYPE);
+    dustChart = drawChart('dustChart', ['pm25', 'pm25_smooth'], pm25Data, LINEAR_AXIS_SCALE_TYPE);
 
     MQTTconnect();
 });
