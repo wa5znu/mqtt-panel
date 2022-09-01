@@ -6,8 +6,13 @@ let topic = 'sensor/#';
 let useTLS = false;
 let cleansession = true;
 let reconnectTimeout = 3000;
-let maxDataPoints = 86400;
+let maxDataPointsSaved = 86400;
+let maxChartPoints = 2400;
 let mqtt;
+let DUAL_LINEAR_AXIS_SCALE_TYPE = "dual-linear";
+let LINEAR_AXIS_SCALE_TYPE = "linear";
+let LOG_AXIS_SCALE_TYPE = "logarithmic";
+
 
 
 var bme680Chart = null;
@@ -105,13 +110,14 @@ function handleMessage(message) {
 }
 
 function makeTimestamp() {
-    let d = Date();
+    let d = new Date();
     let monthday = d.toLocaleDateString('en-us', { month:"numeric", day:"numeric"});
     let t = d.toLocaleTimeString('en-gb').slice(0, 5);
     return monthday + " " + t;
     // return date.getMonth() + "-" + date.getDay() + date.toTimeString().slice(0,5);
     // return Date().slice(16, 21);
 }
+
 
 function handle_bme680(timestamp, topic, payload) {
     var temp = extract_float_field('temp', payload);
@@ -197,7 +203,7 @@ function addChartData(chart, label, data) {
 
 // caller should call destroy on result before calling again
 // on same canvas.  Or use addChartData instead.
-function drawChart(chart_id, keys, data) {
+function drawChart(chart_id, keys, data, axis_scale_type) {
     // console.log("drawChart", chart_id, keys, data);
     let ctx = document.getElementById(chart_id).getContext("2d");
 
@@ -206,12 +212,13 @@ function drawChart(chart_id, keys, data) {
         backgroundColor: 'rgb(255, 99, 132)',
         datasets: keys.map((key) => ({
             label: key,
-            data: data,
+            data: data.slice(-maxChartPoints),
             borderColor: metric_colors[key],
             parsing: {
                 xAxisKey: 'timestamp',
                 yAxisKey: key,
             },
+	    yAxisID: (key == 'hum' || key == 'hum_smooth') ? 'y1' : 'y',
         })),
     }
 
@@ -228,10 +235,12 @@ function drawChart(chart_id, keys, data) {
         }
     }
 
+    var scale_options = calculateAxisOptions(axis_scale_type);
+
     // console.log(chart_data);
     let chart_options = {
-        legend: {display: true},
-        scales: { y: { type: 'logarithmic', bounds: 'ticks', ticks: { major: { enabled: true } } } },
+        legend: { display: true },
+        scales: scale_options,
         showLine: true,
         plugins: plugin_options,
     }
@@ -240,10 +249,61 @@ function drawChart(chart_id, keys, data) {
     return chart;
 }
 
+function calculateAxisOptions(axisScaleType) {
+    switch (axisScaleType) {
+	case LOG_AXIS_SCALE_TYPE:
+	    return {
+		y: { type: 'logarithmic',
+		     bounds: 'ticks',
+		     ticks: { major: { enabled: true } }
+		   }
+	    }
+	    
+	case LINEAR_AXIS_SCALE_TYPE:
+	    return {
+		y: { type: 'linear',
+		     bounds: 'ticks',
+		     ticks: { major: { enabled: true } },
+		     title: { text: 'PM 2.5 μ', display: true }, // fixme
+		   }
+	    }
+
+	case DUAL_LINEAR_AXIS_SCALE_TYPE:
+	    return {
+//		x: {
+//		    title: {
+//			text: 'date/time',
+//		    }
+//		},
+//
+		y: {
+		    type: 'linear',
+		    display: true,
+		    position: 'left',
+		    title: { text: '℃ | in Hg', display: true },
+		},
+		y1: {
+		    type: 'linear',
+		    display: true,
+		    position: 'right',
+		    ticks: { major: { enabled: true } },
+		    title: { text: '%', display: true },
+		    // grid line settings
+		    grid: {
+			drawOnChartArea: false, // only want the grid lines for one axis to show up
+		    },
+		},
+	    };
+
+	default:
+	    return null;
+    }
+}
+
 
 function addToMetricsStream(metrics_name, metrics_stream, new_label, new_data, chart) {
     metrics_stream.push(new_data);
-    if (metrics_stream.length >= maxDataPoints) {
+    if (metrics_stream.length >= maxDataPointsSaved) {
         metrics_stream.shift()
     }
     saveMetricsStream(metrics_name, metrics_stream);
@@ -313,9 +373,9 @@ $(document).ready(function () {
     bme280Data = restoreMetricsStream('temp280');
     pm25Data = restoreMetricsStream('pm25');
 
-    bme280Chart = drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(bme280Data));
-    bme680Chart = drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], movingAvgHum(bme680Data));
-    dustChart = drawChart('dustChart', ['pm25', 'pm25_smooth'], movingAvgPM25(pm25Data));
+    bme280Chart = drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth', 'press'], bme280Data, DUAL_LINEAR_AXIS_SCALE_TYPE);
+    bme680Chart = drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], bme680Data, DUAL_LINEAR_AXIS_SCALE_TYPE);
+    dustChart = drawChart('dustChart', ['pm25', 'pm25_smooth'], pm25Data, LINEAR_AXIS_SCALE_TYPE);
 
     MQTTconnect();
 });
