@@ -1,5 +1,6 @@
 // -*-mode: js; js-switch-indent-offset: 4; indent-tags-mode: nil -*-
 
+// config
 let host = 'mqtt.klotz.me';
 let port = 8080;
 let topic = 'sensor/#';
@@ -8,12 +9,22 @@ let cleansession = true;
 let reconnectTimeout = 3000;
 let maxDataPointsSaved = 86400;
 let maxChartPoints = 2400;
-let mqtt;
 let DUAL_LINEAR_AXIS_SCALE_TYPE = "dual-linear";
 let LINEAR_AXIS_SCALE_TYPE = "linear";
 let LOG_AXIS_SCALE_TYPE = "logarithmic";
 
+let metric_colors = {
+    'temp':        'rgb(255,99,132)',
+    'hum':         'rgba(99,255,132, 0.25)',
+    'hum_smooth':  'rgb(99,255,132)',
+    'press':       'rgb(132,99,255)',
+    'pm25':        'rgba(66,128,50, 0.25)',
+    'pm25_smooth': 'rgb(66,128,50)'
+};
 
+
+// state
+var mqtt = null;
 
 var bme680Chart = null;
 var bme280Data = new Array();
@@ -24,14 +35,84 @@ var bme280Data = new Array();
 var dustChart = null;
 var pm25Data = new Array();
 
-let metric_colors = {
-    'temp':        'rgb(255,99,132)',
-    'hum':         'rgba(99,255,132, 0.25)',
-    'hum_smooth':  'rgb(99,255,132)',
-    'press':       'rgb(132,99,255)',
-    'pm25':        'rgba(66,128,50, 0.25)',
-    'pm25_smooth': 'rgb(66,128,50)'
+// handlers
+function handle_bme680(timestamp, topic, payload) {
+    var temp = extract_float_field('temp', payload);
+    var hum = extract_float_field('hum', payload);
+    var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
+    var gas = extract_float_field('gas', payload);
+
+    $('#bme680TempSensor').html(payload);
+    $('#bme680Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in ' + gas + ' Ω');
+    $('#bme680Label').addClass('badge-default');
+
+    let label = timestamp;
+    let data = {
+        "timestamp": timestamp,
+        "temp": temp,
+        "hum": hum,
+        "press": press,
+        "gas": gas
+    }
+
+    data = movingAvgHum([...bme680Data, data])[bme680Data.length];
+    addToMetricsStream('temp680', bme680Data, label, data, bme680Chart);
 }
+
+function handle_bme280(timestamp, topic, payload) {
+    var temp = extract_float_field('temp', payload);
+    var hum = extract_float_field('hum', payload);
+    var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
+
+    $('#bme280Sensor').html(payload);
+    $('#bme280Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in');
+    $('#bme280Label').addClass('badge-default');
+
+    let label = timestamp;
+    let data = {
+        "timestamp": timestamp,
+        "temp": temp,
+        "hum": hum,
+        "press": press
+    };
+
+    data = movingAvgHum([...bme280Data, data])[bme280Data.length];
+    addToMetricsStream('temp280', bme280Data, label, data, bme280Chart);
+}
+
+function handle_dust(timestamp, topic, payload) {
+    var pm25 = extract_float_field('pm2_5', payload);
+
+    $('#dustPm25Sensor').html(payload);
+    $('#dustPm25Label').text(pm25 + ' μ');
+    $('#dustPm25Label').addClass('badge-default');
+
+    let label = timestamp;
+    let data = {
+        "timestamp": timestamp,
+        "pm25": pm25
+    };
+
+    data = movingAvgPM25([...pm25Data, data])[pm25Data.length];
+    addToMetricsStream('pm25', pm25Data, label, data, dustChart);
+}
+
+
+// connect to document
+$(document).ready(function () {
+    bme680Data = restoreMetricsStream('temp680');
+    bme280Data = restoreMetricsStream('temp280');
+    pm25Data = restoreMetricsStream('pm25');
+
+    bme280Chart = drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth', 'press'], bme280Data, DUAL_LINEAR_AXIS_SCALE_TYPE);
+    bme680Chart = drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], bme680Data, DUAL_LINEAR_AXIS_SCALE_TYPE);
+    dustChart = drawChart('dustChart', ['pm25', 'pm25_smooth'], pm25Data, LINEAR_AXIS_SCALE_TYPE);
+
+    MQTTconnect();
+});
+
+
+// code, not yet totally free of metrics names
 
 function MQTTconnect() {
     if (typeof path == "undefined") {
@@ -116,68 +197,6 @@ function makeTimestamp() {
     return monthday + " " + t;
     // return date.getMonth() + "-" + date.getDay() + date.toTimeString().slice(0,5);
     // return Date().slice(16, 21);
-}
-
-
-function handle_bme680(timestamp, topic, payload) {
-    var temp = extract_float_field('temp', payload);
-    var hum = extract_float_field('hum', payload);
-    var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
-    var gas = extract_float_field('gas', payload);
-
-    $('#bme680TempSensor').html(payload);
-    $('#bme680Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in ' + gas + ' Ω');
-    $('#bme680Label').addClass('badge-default');
-
-    let label = timestamp;
-    let data = {
-        "timestamp": timestamp,
-        "temp": temp,
-        "hum": hum,
-        "press": press,
-        "gas": gas
-    }
-
-    data = movingAvgHum([...bme680Data, data])[bme680Data.length];
-    addToMetricsStream('temp680', bme680Data, label, data, bme680Chart);
-}
-
-function handle_bme280(timestamp, topic, payload) {
-    var temp = extract_float_field('temp', payload);
-    var hum = extract_float_field('hum', payload);
-    var press = (+(extract_float_field('press', payload) * 0.02953).toFixed(4));
-
-    $('#bme280Sensor').html(payload);
-    $('#bme280Label').text(temp + '°C ' + ((temp * 1.8) + 32).toFixed(1) + '°F ' + hum + '% ' + press + 'in');
-    $('#bme280Label').addClass('badge-default');
-
-    let label = timestamp;
-    let data = {
-        "timestamp": timestamp,
-        "temp": temp,
-        "hum": hum,
-        "press": press
-    };
-
-    data = movingAvgHum([...bme280Data, data])[bme280Data.length];
-    addToMetricsStream('temp280', bme280Data, label, data, bme280Chart);
-}
-
-function handle_dust(timestamp, topic, payload) {
-    var pm25 = extract_float_field('pm2_5', payload);
-
-    $('#dustPm25Sensor').html(payload);
-    $('#dustPm25Label').text(pm25 + ' μ');
-    $('#dustPm25Label').addClass('badge-default');
-
-    let label = timestamp;
-    let data = {
-        "timestamp": timestamp,
-        "pm25": pm25
-    };
-
-    data = movingAvgPM25([...pm25Data, data])[pm25Data.length];
-    addToMetricsStream('pm25', pm25Data, label, data, dustChart);
 }
 
 function extract_float_field(field_name, payload) {
@@ -368,14 +387,3 @@ function movingAvg(array_of_dicts, raw_fieldname, countBefore, countAfter, smoot
   return result;
 }
 
-$(document).ready(function () {
-    bme680Data = restoreMetricsStream('temp680');
-    bme280Data = restoreMetricsStream('temp280');
-    pm25Data = restoreMetricsStream('pm25');
-
-    bme280Chart = drawChart('bme280Chart', ['temp', 'hum', 'hum_smooth', 'press'], bme280Data, DUAL_LINEAR_AXIS_SCALE_TYPE);
-    bme680Chart = drawChart('bme680Chart', ['temp', 'hum', 'hum_smooth', 'press'], bme680Data, DUAL_LINEAR_AXIS_SCALE_TYPE);
-    dustChart = drawChart('dustChart', ['pm25', 'pm25_smooth'], pm25Data, LINEAR_AXIS_SCALE_TYPE);
-
-    MQTTconnect();
-});
